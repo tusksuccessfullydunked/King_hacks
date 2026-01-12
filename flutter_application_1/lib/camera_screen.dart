@@ -12,14 +12,7 @@ import 'package:path/path.dart' as path;
 // No path_provider needed!
 
 Future<void> saveJsonFile(String imagePath, double lat, double lng) async {
-  try {
-    // Get the directory where the photo is stored
-    final photoFile = File(imagePath);
-    final photoDir = photoFile.parent;
-    
-    print('📁 Photo directory: ${photoDir.path}');
-    print('✅ Directory exists: ${await photoDir.exists()}');
-    
+  try {    
     // Create JSON filename (same as photo but .json extension)
     final jsonPath = imagePath.replaceAll('.jpg', '.json');
     final jsonFile = File(jsonPath);
@@ -29,8 +22,7 @@ Future<void> saveJsonFile(String imagePath, double lat, double lng) async {
       'image_path': imagePath,
       'latitude': lat,
       'longitude': lng,
-      'timestamp': DateTime.now().toIso8601String(),
-      'status': 'ready_for_ai',
+      'timestamp': DateTime.now().toIso8601String()
     };
     
     // Write JSON file
@@ -39,17 +31,8 @@ Future<void> saveJsonFile(String imagePath, double lat, double lng) async {
       flush: true,
     );
     
-    // Verify it worked
-    final fileExists = await jsonFile.exists();
-    final fileSize = await jsonFile.length();
-    
-    print('📄 JSON saved: $jsonPath');
-    print('✅ File exists: $fileExists');
-    print('📏 File size: $fileSize bytes');
-    print('🎯 Python can read from: ${photoDir.path}');
-    
   } catch (e) {
-    print('❌ Error saving JSON: $e');
+    rethrow;
   }
 }
 // ==================================================
@@ -57,12 +40,12 @@ Future<void> saveJsonFile(String imagePath, double lat, double lng) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final cameras = await availableCameras();
-  runApp(MyApp(camera: cameras.first));
+  runApp(CameraApp(camera: cameras.first));
 }
 
-class MyApp extends StatelessWidget {
+class CameraApp extends StatelessWidget {
   final CameraDescription camera;
-  const MyApp({required this.camera, Key? key}) : super(key: key);
+  const CameraApp({required this.camera, super.key});
   
   @override
   Widget build(BuildContext context) {
@@ -80,7 +63,7 @@ class MyApp extends StatelessWidget {
 
 class SimpleCameraScreen extends StatefulWidget {
   final CameraDescription camera;
-  const SimpleCameraScreen({required this.camera, Key? key}) : super(key: key);
+  const SimpleCameraScreen({required this.camera, super.key});
   
   @override
   _SimpleCameraScreenState createState() => _SimpleCameraScreenState();
@@ -155,20 +138,11 @@ class _SimpleCameraScreenState extends State<SimpleCameraScreen> {
         _isGettingLocation = false;
       });
       
-      print('📍 Location obtained: ${position.latitude}, ${position.longitude}');
-      
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       setState(() {
         _locationError = 'Location timeout - try again';
         _isGettingLocation = false;
       });
-      print('Location timeout: $e');
-    } catch (e) {
-      setState(() {
-        _locationError = 'Failed to get location: ${e.toString()}';
-        _isGettingLocation = false;
-      });
-      print('Location error: $e');
     }
   }
   
@@ -198,18 +172,13 @@ Future<void> _takePhoto() async {
   try {
     // 1. Take photo (goes to temp location)
     final image = await _controller.takePicture();
-    
     setState(() {
       _image = image;
     });
-    
     // 2. Save to PUBLIC directory
     await _saveToPublicDirectory(image.path);
-    
     _showSnackBar('✅ Photo + JSON saved to public folder!');
-    
   } catch (e) {
-    print('Error: $e');
     _showSnackBar('Failed to capture photo');
   }
 }
@@ -222,7 +191,6 @@ Future<void> _saveToPublicDirectory(String imagePath) async {
     
     if (!await publicDir.exists()) {
       await publicDir.create(recursive: true);
-      print('✅ Created public directory: ${publicDir.path}');
     }
     
     // Generate unique filename with timestamp
@@ -231,13 +199,8 @@ Future<void> _saveToPublicDirectory(String imagePath) async {
     
     // 1. Copy photo to public directory (optional)
     final publicPhotoPath = '${publicDir.path}/$baseName.jpg';
-    try {
-      final originalPhoto = File(imagePath);
-      await originalPhoto.copy(publicPhotoPath);
-      print('✅ Photo copied to: $publicPhotoPath');
-    } catch (e) {
-      print('⚠️ Could not copy photo: $e');
-    }
+    final originalPhoto = File(imagePath);
+    await originalPhoto.copy(publicPhotoPath);
     
     // 2. Create JSON file in public directory
     _jsonFilePath = '${publicDir.path}/$baseName.json';
@@ -246,16 +209,14 @@ Future<void> _saveToPublicDirectory(String imagePath) async {
     // Prepare JSON data
     final jsonData = {
       'image_path': publicPhotoPath,  // Use public path, not temp path
-      'original_image_path': imagePath,
       'latitude': _currentPosition!.latitude,
       'longitude': _currentPosition!.longitude,
-      'accuracy': _currentPosition!.accuracy,
       'timestamp': DateTime.now().toIso8601String(),
+      'original_image_path': imagePath,
       'device_info': {
         'platform': 'Android',
         'public_directory': publicDir.path,
       },
-      'status': 'ready_for_ai_analysis',
     };
     
     // Write JSON file
@@ -267,30 +228,8 @@ Future<void> _saveToPublicDirectory(String imagePath) async {
     // Store the public directory
     _jsonDestinationDir = publicDir.path;
     
-    // 3. Print success message with ADB commands
-    print('\n' + '='*50);
-    print('✅ FILES SAVED TO PUBLIC DIRECTORY');
-    print('='*50);
-    print('📁 Public Directory: $publicDir');
-    print('📷 Photo: $publicPhotoPath');
-    print('📄 JSON: $_jsonFilePath');
-    print('📍 Location: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}');
-    print('');
-    print('🔧 TO ACCESS FILES FROM YOUR COMPUTER:');
-    print('1. Open Command Prompt as Administrator');
-    print('2. Run: cd C:\\platform-tools');
-    print('3. Run: adb devices');
-    print('4. Run: adb pull /storage/emulated/0/Download/InfrastructureReports/ C:\\Users\\roman\\Desktop\\');
-    print('');
-    print('📱 OR access on device:');
-    print('File Manager → Downloads → InfrastructureReports');
-    print('='*50 + '\n');
-    
   } catch (e) {
-    print('❌ Error saving to public directory: $e');
-    
     // Fallback: Save to original temp location
-    print('⚠️ Falling back to temp directory...');
     await _saveToTempDirectory(imagePath);
   }
 }
@@ -317,11 +256,8 @@ Future<void> _saveToTempDirectory(String imagePath) async {
       flush: true,
     );
     
-    print('✅ Fallback: Saved to temp directory');
-    print('📄 JSON: $jsonPath');
-    
   } catch (e) {
-    print('❌ Fallback also failed: $e');
+    _showSnackBar("Fallback failed");
   }
 }
   
@@ -332,7 +268,6 @@ Future<void> _cleanupJsonFile() async {
       final jsonFile = File(_jsonFilePath!);
       if (await jsonFile.exists()) {
         await jsonFile.delete();
-        print('🗑️ Deleted JSON file: $_jsonFilePath');
       }
       
       // Also try to delete the photo copy if it exists
@@ -341,11 +276,10 @@ Future<void> _cleanupJsonFile() async {
         final photoFile = File(photoPath);
         if (await photoFile.exists()) {
           await photoFile.delete();
-          print('🗑️ Deleted photo copy: $photoPath');
         }
       }
     } catch (e) {
-      print('Error deleting files: $e');
+      _showSnackBar("Error deleting files: $e");
     }
     _jsonFilePath = null;
     _jsonDestinationDir = null;
@@ -579,19 +513,19 @@ Future<void> _cleanupJsonFile() async {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('📷 Photo File:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('Photo File:', style: TextStyle(fontWeight: FontWeight.bold)),
                         SelectableText(_image!.path, style: const TextStyle(fontSize: 12)),
                         const SizedBox(height: 10),
                         
-                        const Text('📄 JSON File:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('JSON File:', style: TextStyle(fontWeight: FontWeight.bold)),
                         SelectableText(_jsonFilePath ?? 'Not created', style: const TextStyle(fontSize: 12)),
                         const SizedBox(height: 10),
                         
-                        const Text('📁 Python should watch:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('Python should watch:', style: TextStyle(fontWeight: FontWeight.bold)),
                         SelectableText(path.dirname(_image!.path), style: const TextStyle(fontSize: 12)),
                         const SizedBox(height: 10),
                         
-                        const Text('📍 Location Data:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('Location Data:', style: TextStyle(fontWeight: FontWeight.bold)),
                         Text('Latitude: ${_currentPosition!.latitude.toStringAsFixed(6)}'),
                         Text('Longitude: ${_currentPosition!.longitude.toStringAsFixed(6)}'),
                       ],
@@ -680,14 +614,6 @@ Future<void> _cleanupJsonFile() async {
             // Debug/test button
             FloatingActionButton(
               onPressed: () {
-                print('=== DEBUG INFO ===');
-                print('Current position: $_currentPosition');
-                print('JSON path: $_jsonFilePath');
-                if (_image != null) {
-                  print('Photo path: ${_image!.path}');
-                  print('Photo dir: ${path.dirname(_image!.path)}');
-                }
-                print('==================');
                 _showSnackBar('Debug info printed to console');
               },
               backgroundColor: Colors.orange[800],
