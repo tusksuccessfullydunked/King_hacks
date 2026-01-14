@@ -6,36 +6,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:path/path.dart' as path;
-
-// ========== SIMPLE FILE WRITING SOLUTION ==========
-// We'll save JSON files in the SAME directory as the photos
-// No path_provider needed!
-
-Future<void> saveJsonFile(String imagePath, double lat, double lng) async {
-  try {    
-    // Create JSON filename (same as photo but .json extension)
-    final jsonPath = imagePath.replaceAll('.jpg', '.json');
-    final jsonFile = File(jsonPath);
-    
-    // Create JSON data
-    final jsonData = {
-      'image_path': imagePath,
-      'latitude': lat,
-      'longitude': lng,
-      'timestamp': DateTime.now().toIso8601String()
-    };
-    
-    // Write JSON file
-    await jsonFile.writeAsString(
-      JsonEncoder.withIndent('  ').convert(jsonData),
-      flush: true,
-    );
-    
-  } catch (e) {
-    rethrow;
-  }
-}
-// ==================================================
+import 'package:path_provider/path_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +51,6 @@ class _SimpleCameraScreenState extends State<SimpleCameraScreen> {
   
   // Track the JSON file path
   String? _jsonFilePath;
-  String? _jsonDestinationDir;
 
   @override
   void initState() {
@@ -183,11 +153,24 @@ Future<void> _takePhoto() async {
   }
 }
 
+Future<Directory> _getPublicDirectory() async {
+  // For Android
+  if (Platform.isAndroid) {
+    final externalDir = await getExternalStorageDirectory();
+    if (externalDir != null) {
+      return Directory('${externalDir.path}/InfrastructureReports');
+    }
+  }
+  // Fallback to app documents directory
+  final appDir = await getApplicationDocumentsDirectory();
+  return Directory('${appDir.path}/InfrastructureReports');
+}
+
 // NEW METHOD: Save to public directory
 Future<void> _saveToPublicDirectory(String imagePath) async {
   try {
     // Create public directory in Downloads folder
-    final publicDir = Directory('/storage/emulated/0/Download/InfrastructureReports');
+    final publicDir = await _getPublicDirectory();
     
     if (!await publicDir.exists()) {
       await publicDir.create(recursive: true);
@@ -225,9 +208,6 @@ Future<void> _saveToPublicDirectory(String imagePath) async {
       flush: true,
     );
     
-    // Store the public directory
-    _jsonDestinationDir = publicDir.path;
-    
   } catch (e) {
     // Fallback: Save to original temp location
     await _saveToTempDirectory(imagePath);
@@ -240,7 +220,6 @@ Future<void> _saveToTempDirectory(String imagePath) async {
     // Original method - save next to photo
     final jsonPath = imagePath.replaceAll('.jpg', '.json');
     _jsonFilePath = jsonPath;
-    _jsonDestinationDir = path.dirname(imagePath);
     
     final jsonData = {
       'image_path': imagePath,
@@ -282,7 +261,6 @@ Future<void> _cleanupJsonFile() async {
       _showSnackBar("Error deleting files: $e");
     }
     _jsonFilePath = null;
-    _jsonDestinationDir = null;
   }
 }
   Future<void> _switchCamera() async {
