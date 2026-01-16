@@ -6,10 +6,9 @@ from datetime import datetime
 
 import cv2
 import numpy as np
-from tf.keras.applications import EfficientNetB0
-from tf.keras.applications.efficientnet import preprocess_input
-from tf.keras.applications.imagenet_utils import decode_predictions
-
+from tensorflow.keras.applications import EfficientNetB0
+from tensorflow.keras.applications.efficientnet import preprocess_input
+from tensorflow.keras.applications.imagenet_utils import decode_predictions
 
 import sql_python_file
 
@@ -130,10 +129,10 @@ def upload_files():
                 "whatIsIt": whatIsIt,
                 "priority": priority,
                 "analysis": {
-                    "damage_score": round(score, 2), # type: ignore
+                    "damage_score": round(score, 2),
                     "severity": category,
                     "detected_issues": [whatIsIt],
-                    "confidence": round(score, 2), # type: ignore
+                    "confidence": round(score, 2),
                 },
             }
         )
