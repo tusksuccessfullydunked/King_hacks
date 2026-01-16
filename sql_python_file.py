@@ -1,6 +1,5 @@
 import psycopg2
-from psycopg2.extras import execute_values
-import base64
+
 
 def get_db_connection():
     """Create and return a database connection."""
@@ -8,52 +7,61 @@ def get_db_connection():
         dbname="testing",
         user="postgres",
         password="qwerty123",
-        host="localhost"
+        host="localhost",
     )
 
+
 def create_table_if_not_exists():
-    """Create the images table if it doesn't exist."""
+    """Create the reports table if it doesn't exist."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS analyzed_images (
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS reports (
             id SERIAL PRIMARY KEY,
-            image_data BYTEA NOT NULL,
-            location VARCHAR(255),
-            image_description VARCHAR(255),
-            confidence_score FLOAT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            "Category" TEXT NOT NULL,
+            "WhatIsIt" TEXT NOT NULL,
+            latitude DOUBLE PRECISION NOT NULL,
+            longitude DOUBLE PRECISION NOT NULL,
+            "timestamp" TIMESTAMP NOT NULL,
+            priority INTEGER NOT NULL
         )
-    """)
-    
+        """
+    )
+
     conn.commit()
     cursor.close()
     conn.close()
 
-def save_image_analysis(image_data, location, description, confidence_score):
+def save_report(category, whatIsIt, latitude, longitude, timestamp, priority):
     """
-    Save image analysis results to the database.
-    
+    Save report results to the database.
+
     Args:
-        image_data: Binary image data (bytes)
-        location: Location string from frontend
-        description: What the image is (from AI analysis)
-        confidence_score: Confidence score from AI
-        
+        category: Report category string
+        whatIsIt: What is in the image
+        latitude: Latitude coordinate (float)
+        longitude: Longitude coordinate (float)
+        timestamp: ISO timestamp string
+        priority: Priority 1-10 (int)
+
     Returns:
         int: The ID of the inserted record
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
-        cursor.execute("""
-            INSERT INTO analyzed_images (image_data, location, image_description, confidence_score)
-            VALUES (%s, %s, %s, %s)
+        cursor.execute(
+            """
+            INSERT INTO reports ("Category", "WhatIsIt", latitude, longitude, "timestamp", priority)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (image_data, location, description, confidence_score))
-        
+            """,
+            (category, whatIsIt, latitude, longitude, timestamp, priority),
+        )
+
         record_id = cursor.fetchone()[0]
         conn.commit()
         return record_id
